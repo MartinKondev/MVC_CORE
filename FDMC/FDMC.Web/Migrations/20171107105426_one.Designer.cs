@@ -11,8 +11,8 @@ using System;
 namespace FDMC.Web.Migrations
 {
     [DbContext(typeof(CatsDbContext))]
-    [Migration("20171106163136_initial")]
-    partial class initial
+    [Migration("20171107105426_one")]
+    partial class one
     {
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {

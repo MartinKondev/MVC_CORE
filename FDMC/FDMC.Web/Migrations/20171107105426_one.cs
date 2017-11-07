@@ -5,7 +5,7 @@ using System.Collections.Generic;
 
 namespace FDMC.Web.Migrations
 {
-    public partial class initial : Migration
+    public partial class one : Migration
     {
         protected override void Up(MigrationBuilder migrationBuilder)
         {
