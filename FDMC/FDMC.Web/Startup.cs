@@ -8,6 +8,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using FDMC.Web.DAL;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Http;
 
 namespace FDMC.Web
 {
@@ -15,7 +16,7 @@ namespace FDMC.Web
     {
         public Startup(IConfiguration configuration)
         {
-            
+
             Configuration = configuration;
         }
 
@@ -24,7 +25,7 @@ namespace FDMC.Web
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-            services.AddDbContext<CatsDbContext>(opt => opt.UseSqlServer("Server=.;Database=CatsDb; IntegratedSecurity=True;"));
+            services.AddDbContext<CatsDbContext>(opt => opt.UseSqlServer("Server=(localdb)\\mssqllocaldb;Database=CatsDb;Trusted_Connection=True;MultipleActiveResultSets=true"));
             services.AddMvc();
         }
 
@@ -37,18 +38,94 @@ namespace FDMC.Web
                 app.UseDatabaseErrorPage();
                 app.UseBrowserLink();
             }
-            else
-            {
-                app.UseExceptionHandler("/Error");
-            }
 
             app.UseStaticFiles();
 
-            app.UseMvc(routes =>
+            app.Use((ctx, next) =>
             {
-                routes.MapRoute(
-                    name: "default",
-                    template: "{controller}/{action=Index}/{id?}");
+                ctx.Response.Headers.Add("Content-Type", "text/html");
+                return next();
+            });
+
+            app.MapWhen(
+                ctx => ctx.Request.Path.Value == "/"
+                       && ctx.Request.Method == "GET",
+                h =>
+                {
+                    h.Run(async (context) =>
+                    {
+                        var db = context.RequestServices.GetService<CatsDbContext>();
+                        var cats = db
+                            .Cats
+                            .Select(c => new
+                            {
+                                c.Id,
+                                c.Name
+                            })
+                            .ToList();
+
+                        await context.Response.WriteAsync("<ul>");
+
+                        foreach (var cat in cats)
+                        {
+                            await context.Response.WriteAsync($@"<li><a href=""cats/{cat.Id}"">{cat.Name}</a></li>");
+                        }
+
+                        await context.Response.WriteAsync("</ul>");
+
+                        await context.Response.WriteAsync($@"<a href=""{context.Request.Host.Value}/cats/add"">Add Cat</a>");
+
+                    });
+                });
+
+            app.MapWhen(
+                ctx => ctx.Request.Path.Value == "/cats/add"
+                        && ctx.Request.Method == "GET",
+                addCat =>
+                {
+                    addCat.Run( (context) =>
+                    {
+                        context.Response.StatusCode = 302;
+                        context.Response.Headers.Add("Locaton", "/cats-add-form.html");
+
+                        //context.Response.WriteAsync(@"<form action=""cats/add"" method=""POST"">");
+
+                        //context.Response.WriteAsync("<h1>Add Cat</h1>");
+
+                        //context.Response.WriteAsync(@"Name: <input type=""text"" name=""Name"">");
+                        //context.Response.WriteAsync(@"Age: <input type=""text"" name=""Age"">");
+                        //context.Response.WriteAsync(@"Breed: <input type=""text"" name=""Breed"">");
+                        //context.Response.WriteAsync(@"Image Url: <input type=""text"" name=""ImageUrl"">");
+
+                        //context.Response.WriteAsync(@"<input type=""submit"" value=""Add Cat"">");
+
+                        return Task.CompletedTask;
+                    });
+                });
+
+            app.MapWhen(
+                ctx => ctx.Request.Path.Value == "/cats/add"
+                    && ctx.Request.Method == "POST",
+                postCat =>
+                {
+                    postCat.Run(async (context) =>
+                    {
+                        var db = context.RequestServices.GetService<CatsDbContext>();
+                        var catToBeAdded = new Cat
+                        {
+                            Name = context.Request.Form["Name"],
+                            Age = Convert.ToInt32(context.Request.Form["Age"]),
+                            Breed = context.Request.Form["Breed"],
+                            ImageUrl = context.Request.Form["Image Url"]
+                        };
+                        db.Add(catToBeAdded);
+                    });
+                });
+
+            app.Run(async (context) =>
+            {
+                context.Response.StatusCode = 404;
+                await context.Response.WriteAsync("404 Ashkolsum!");
             });
         }
     }
