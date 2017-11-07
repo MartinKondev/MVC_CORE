@@ -138,7 +138,15 @@ namespace FDMC.Web
                             ImageUrl = context.Request.Form["ImageUrl"]
                         };
                         db.Add(catToBeAdded);
-                        await db.SaveChangesAsync();
+                        try
+                        {
+                            await db.SaveChangesAsync();
+                        }
+                        catch
+                        {
+                            await context.Response.WriteAsync("<h2>Invalid Cat</h2>");
+                            await context.Response.WriteAsync(@"<a href=""/cat/add"">Back to the form</a>");
+                        }
                     });
                 });
 
